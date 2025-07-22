@@ -10,19 +10,43 @@ import 'package:financial_ai_mobile/views/screens/home/subs_screen/courses/cours
 // import 'package:financial_ai_mobile/views/screens/home/subs_screen/courses/courses_screen.dart';
 import 'package:financial_ai_mobile/views/screens/home/subs_screen/expense_details/espense_details_screen.dart';
 import 'package:financial_ai_mobile/views/screens/notification/notification_screen.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
-  final homeController = Get.put(HomeController());
-  final controller = Get.put(AnalyzeController()); // This is AnalyzeController
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final HomeController homeController = Get.put(HomeController());
+  final AnalyzeController controller = Get.put(AnalyzeController());
+
+  @override
+  void initState() {
+    super.initState();
+    // You can perform initial data loading here if needed
+    // homeController.getUserPresentMonthData();
+    // controller.getReportCategory();
+  }
+
+  @override
+  void dispose() {
+    // This is important if HomeController and AnalyzeController should only live
+    // as long as HomeScreen. If they are global, you might not delete them here.
+    // Get.delete<HomeController>();
+    // Get.delete<AnalyzeController>();
+    super.dispose();
+  }
+
+  // This is AnalyzeController
   String _getIconForCategory(String categoryName) {
     final Map<String, String> categoryIconMap = {
       "food_dining": AppIcons.foodIcon,
@@ -572,15 +596,17 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                         SizedBox(
-                          width: 100.w,
-                          height: 100.h,
+                          width: 150.w,
+                          height: 150.h,
                           child:
-                              (homeController.espenseBalancePer.value == 0 &&
-                                      homeController
-                                              .availableBalancePer
-                                              .value ==
-                                          0 &&
-                                      !homeController.isLoading.value)
+                              (!mounted ||
+                                      homeController.espenseBalancePer.value ==
+                                              0 &&
+                                          homeController
+                                                  .availableBalancePer
+                                                  .value ==
+                                              0 &&
+                                          !homeController.isLoading.value)
                                   ? Center(
                                     child: Text(
                                       "No data",
@@ -590,46 +616,50 @@ class HomeScreen extends StatelessWidget {
                                       ),
                                     ),
                                   )
-                                  : PieChart(
-                                    PieChartData(
-                                      sections: [
-                                        PieChartSectionData(
-                                          value:
-                                              homeController
-                                                  .espenseBalancePer
-                                                  .value,
-                                          title:
-                                              '${homeController.espenseBalancePer.value.toStringAsFixed(0)}%',
-                                          radius: 30,
-                                          titleStyle: TextStyle(
-                                            fontSize: 10.sp,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
+                                  : SfCircularChart(
+                                    series: <CircularSeries>[
+                                      PieSeries<ChartData, String>(
+                                        dataSource: <ChartData>[
+                                          ChartData(
+                                            'Expense',
+                                            homeController
+                                                .espenseBalancePer
+                                                .value,
                                           ),
-                                          color:
-                                              AppStyles.orangeColor ??
-                                              const Color(0xffF38042),
-                                        ),
-                                        PieChartSectionData(
-                                          value:
-                                              homeController
-                                                  .availableBalancePer
-                                                  .value,
-                                          title:
-                                              '${homeController.availableBalancePer.value.toStringAsFixed(0)}%',
-                                          radius: 30,
-                                          titleStyle: TextStyle(
-                                            fontSize: 10.sp,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
+                                          ChartData(
+                                            'Available',
+                                            homeController
+                                                .availableBalancePer
+                                                .value,
                                           ),
-                                          color: AppStyles.primaryColor,
-                                        ),
-                                      ],
-                                      centerSpaceRadius: 0,
-                                      borderData: FlBorderData(show: false),
-                                      sectionsSpace: 0,
-                                    ),
+                                        ],
+                                        pointColorMapper: (ChartData data, _) {
+                                          if (data.category == 'Expense') {
+                                            return AppStyles.orangeColor ??
+                                                const Color(0xffF38042);
+                                          } else {
+                                            return AppStyles.primaryColor;
+                                          }
+                                        },
+                                        xValueMapper:
+                                            (ChartData data, _) =>
+                                                data.category,
+                                        yValueMapper:
+                                            (ChartData data, _) => data.amount,
+                                        dataLabelMapper:
+                                            (ChartData data, _) =>
+                                                '${data.amount.toStringAsFixed(0)}%',
+                                        dataLabelSettings:
+                                            const DataLabelSettings(
+                                              isVisible: true,
+                                              textStyle: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                      ),
+                                    ],
                                   ),
                         ),
                       ],
@@ -931,4 +961,10 @@ class HomeScreen extends StatelessWidget {
       );
     });
   }
+}
+
+class ChartData {
+  ChartData(this.category, this.amount);
+  final String category;
+  final double amount;
 }

@@ -1,7 +1,7 @@
 class ApiEndpoint {
-  static const String mainBase = 'http://192.168.10.186:5000';
+  static const String mainBase = 'http://31.220.31.202:5000';
 
-  static const String baseUrl = 'http://192.168.10.186:5000/api';
+  static const String baseUrl = 'http://31.220.31.202:5000/api';
 
   static const String login = '$baseUrl/auth/login';
   static const String register = '$baseUrl/user/create-user';

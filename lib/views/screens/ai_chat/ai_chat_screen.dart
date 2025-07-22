@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:financial_ai_mobile/controller/chat_controller.dart';
 import 'package:financial_ai_mobile/core/helper/widget_helper.dart';
 import 'package:financial_ai_mobile/core/models/chat_model.dart';
@@ -13,61 +15,90 @@ import 'package:shimmer/shimmer.dart';
 class AiChatScreen extends StatelessWidget {
   AiChatScreen({super.key});
   final ChatController chatController = Get.put(ChatController());
+  final ScrollController _scrollController = ScrollController();
+
+  // Function to scroll to the bottom of the chat list
+  void _scrollToBottom() {
+    // Check if the scroll controller is attached to a view
+    if (_scrollController.hasClients) {
+      // Animate to the maximum scroll extent (the end of the list)
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppStyles.bgColor,
+      // This property is crucial. It makes the body resize when the keyboard appears.
+      resizeToAvoidBottomInset: true,
       appBar: WidgetHelper.showAppBar(
         isBack: true,
         title: 'AI Financial Assistant',
         isCenter: false,
         showActions: false,
       ),
+      // *** MODIFICATION START ***
+      // The body is now a Column to hold the chat list and the input field together.
+      // This is the standard and most reliable way to build a chat UI.
       body: Column(
         children: [
+          // The Expanded widget ensures the chat list takes up all available
+          // space, pushing the input field to the bottom.
           Expanded(
             child: Obx(() {
-              // Scroll to bottom when new message is added
+              // This callback scrolls to the bottom after the UI has been rebuilt
+              // with a new message.
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                // You might need a ScrollController for this to work reliably
-                // and scroll to the end of the list.
+                _scrollToBottom();
               });
+              // Show the welcome text if the chat is empty, otherwise show the list.
               return chatController.chatData.isEmpty
                   ? _buildWelcomeText()
                   : _buildChatList();
             }),
           ),
+          // The loading indicator is part of the Column and will appear
+          // just above the input field.
           Obx(() {
             return chatController.isLoading.value
                 ? Padding(
-                  padding: EdgeInsets.all(10.r), // Use .r for padding
+                  padding: EdgeInsets.all(10.r),
                   child: SizedBox(
                     width: double.infinity,
                     height: 20.h,
                     child: Shimmer.fromColors(
-                      baseColor:
-                          Colors.grey.shade400, // Adjusted shimmer colors
+                      baseColor: Colors.grey.shade400,
                       highlightColor: Colors.grey.shade200,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white, // Shimmer needs a background
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(10.r),
                         ),
                       ),
                     ),
                   ),
                 )
-                : SizedBox.shrink(); // Use SizedBox.shrink for no space
+                : const SizedBox.shrink();
           }),
+          // The message input field is now the last widget in the Column.
+          // When the keyboard appears, the Column resizes, and this widget
+          // will be pushed up, remaining visible.
+          _buildMessageInput(),
         ],
       ),
-      bottomNavigationBar: _buildMessageInput(),
+      // *** MODIFICATION END ***
+      // The bottomNavigationBar is no longer needed here because the input field
+      // has been moved into the body.
+      // bottomNavigationBar: _buildMessageInput(),
     );
   }
 
   Widget _buildWelcomeText() {
-    // ... (no changes needed)
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -92,15 +123,10 @@ class AiChatScreen extends StatelessWidget {
   }
 
   Widget _buildChatList() {
-    // For auto-scrolling, you'd add a ScrollController here
     return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: 16.w,
-        vertical: 8.h,
-      ), // Adjusted padding
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       child: ListView.builder(
-        reverse:
-            false, // Keep false if you want new messages at the bottom and scroll down
+        controller: _scrollController, // Assign the scroll controller
         itemCount: chatController.chatData.length,
         itemBuilder: (context, index) {
           final message = chatController.chatData[index];
@@ -116,10 +142,10 @@ class AiChatScreen extends StatelessWidget {
       alignment: isSender ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: EdgeInsets.symmetric(vertical: 5.h),
-        padding: EdgeInsets.all(10.w), // Consistent padding
+        padding: EdgeInsets.all(10.w),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ), // Max width for bubbles
+        ),
         decoration: BoxDecoration(
           color: isSender ? AppStyles.blueColor : Colors.grey.shade200,
           borderRadius: BorderRadius.circular(12.r),
@@ -127,10 +153,8 @@ class AiChatScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment:
               isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          mainAxisSize:
-              MainAxisSize.min, // Important for Column to wrap content
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Display image if it exists (only for sender's message for now)
             if (isSender && message.imageFile != null)
               Padding(
                 padding: EdgeInsets.only(
@@ -140,15 +164,11 @@ class AiChatScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8.r),
                   child: Image.file(
                     message.imageFile!,
-                    width:
-                        MediaQuery.of(context).size.width *
-                        0.6, // Responsive image width
-                    fit: BoxFit.contain, // Use contain or cover as needed
+                    width: MediaQuery.of(context).size.width * 0.6,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
-            // Display text message
-            // Conditionally render Text widget only if message is not empty
             if (message.message.isNotEmpty)
               isSender
                   ? Text(
@@ -159,7 +179,6 @@ class AiChatScreen extends StatelessWidget {
                     selectable: true,
                     data: message.message,
                     styleSheet: md.MarkdownStyleSheet(
-                      // Basic styling for markdown
                       p: TextStyle(fontSize: 14.sp, color: Colors.black87),
                     ),
                   ),
@@ -169,13 +188,8 @@ class AiChatScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMarkdownMessage(ChatModel message) {
-    // This can be removed if integrated into _buildMessageCard
-    return md.MarkdownBody(selectable: true, data: message.message);
-  }
-
   Widget _buildMessageInput() {
-    // ... (no changes to the overall structure needed, just ensure controller.chatController is used)
+    // This container wraps the entire input section.
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 10.h),
       decoration: BoxDecoration(
@@ -185,23 +199,19 @@ class AiChatScreen extends StatelessWidget {
             color: Colors.grey.withOpacity(0.2),
             spreadRadius: 1,
             blurRadius: 5,
-            offset: Offset(0, -2), // changes position of shadow
+            offset: const Offset(0, -2),
           ),
         ],
-        // borderRadius: BorderRadius.only(
-        //   topRight: Radius.circular(20.r),
-        //   topLeft: Radius.circular(20.r),
-        // ), // Optional: if you want rounded top corners
       ),
+      // SafeArea ensures the input field avoids system intrusions at the bottom (like the home bar).
       child: SafeArea(
-        // Ensures input is not obscured by system UI (like home bar)
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Obx(() {
               return chatController.selectedImage.value != null
                   ? _buildSelectedImagePreview()
-                  : SizedBox.shrink();
+                  : const SizedBox.shrink();
             }),
             _buildInputRow(),
           ],
@@ -211,12 +221,10 @@ class AiChatScreen extends StatelessWidget {
   }
 
   Widget _buildSelectedImagePreview() {
-    // ... (no changes needed)
     return Padding(
       padding: EdgeInsets.only(bottom: 8.h),
       child: Row(
-        // Wrap in Row to allow alignment or other elements if needed
-        mainAxisAlignment: MainAxisAlignment.start, // Align image to the start
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Stack(
             alignment: Alignment.topRight,
@@ -225,27 +233,24 @@ class AiChatScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8.r),
                 child: Image.file(
                   chatController.selectedImage.value!,
-                  width: 60.w, // Slightly larger preview
+                  width: 60.w,
                   height: 60.h,
                   fit: BoxFit.cover,
                 ),
               ),
               Positioned(
-                top: -5, // Adjust for better positioning
+                top: -5,
                 right: -5,
                 child: GestureDetector(
                   onTap: () {
                     chatController.removeImage();
                   },
                   child: Container(
-                    padding: EdgeInsets.all(2.w), // Padding inside circle
+                    padding: EdgeInsets.all(2.w),
                     decoration: BoxDecoration(
-                      color: Colors.redAccent, // Slightly different red
+                      color: Colors.redAccent,
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 1.5.w,
-                      ), // White border for contrast
+                      border: Border.all(color: Colors.white, width: 1.5.w),
                     ),
                     child: Icon(Icons.close, size: 12.sp, color: Colors.white),
                   ),
@@ -259,28 +264,21 @@ class AiChatScreen extends StatelessWidget {
   }
 
   Widget _buildInputRow() {
-    // Use chatController.chatTextController
     return Row(
-      crossAxisAlignment:
-          CrossAxisAlignment.end, // Align items to bottom if TextField grows
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: 15.w,
-              vertical: 5.h,
-            ), // Adjust vertical padding
+            padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 5.h),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100, // Softer grey
-              borderRadius: BorderRadius.circular(25.r), // More rounded
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(25.r),
             ),
             child: TextField(
-              controller:
-                  chatController
-                      .chatTextController, // Use the renamed controller
-              maxLines: 5, // Allow multiple lines
+              controller: chatController.chatTextController,
+              maxLines: 5,
               minLines: 1,
-              textInputAction: TextInputAction.newline, // For multiline input
+              textInputAction: TextInputAction.newline,
               decoration: InputDecoration(
                 hintText: 'Message AI Financial Assistant...',
                 hintStyle: TextStyle(
@@ -288,11 +286,17 @@ class AiChatScreen extends StatelessWidget {
                   fontSize: 14.sp,
                 ),
                 border: InputBorder.none,
-                isCollapsed: true, // Reduces some default padding
-                contentPadding: EdgeInsets.symmetric(
-                  vertical: 10.h,
-                ), // Adjust content padding
+                isCollapsed: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 10.h),
               ),
+              onTap: () {
+                // When the text field is tapped, ensure the view scrolls
+                // to the end after a short delay to account for the keyboard animation.
+                Future.delayed(
+                  const Duration(milliseconds: 300),
+                  _scrollToBottom,
+                );
+              },
             ),
           ),
         ),
@@ -302,7 +306,6 @@ class AiChatScreen extends StatelessWidget {
             await chatController.pickImage();
           },
           child: Padding(
-            // Add padding for larger tap area
             padding: EdgeInsets.all(8.r),
             child: SvgPicture.asset(
               AppIcons.addImage,
@@ -315,16 +318,13 @@ class AiChatScreen extends StatelessWidget {
             ),
           ),
         ),
-        // SizedBox(width: 5.w), // Spacing can be adjusted
         GestureDetector(
           onTap: () async {
-            // Prevent multiple rapid sends while one is in progress
             if (!chatController.isLoading.value) {
               await chatController.sendMessage();
             }
           },
           child: Padding(
-            // Add padding for larger tap area
             padding: EdgeInsets.all(8.r),
             child: Obx(
               () =>
@@ -332,8 +332,10 @@ class AiChatScreen extends StatelessWidget {
                       ? SizedBox(
                         width: 24.w,
                         height: 24.h,
-                        child: CircularProgressIndicator(strokeWidth: 2.0),
-                      ) // Show loader on send icon
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2.0,
+                        ),
+                      )
                       : SvgPicture.asset(
                         AppIcons.sendIcon,
                         width: 24.w,
