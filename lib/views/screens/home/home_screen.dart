@@ -510,7 +510,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ) ??
                           TextStyle(color: Colors.black, fontSize: 16.sp),
                     ),
-                    SizedBox(height: 15.h),
+                    SizedBox(height: 0.h),
                     Row(
                       children: [
                         Expanded(
